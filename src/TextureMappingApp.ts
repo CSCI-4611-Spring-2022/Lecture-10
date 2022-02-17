@@ -9,6 +9,7 @@ export class TextureMappingApp extends GraphicsApp
     // State variables
     private debugMode : boolean;
     private mouseDrag : boolean;
+    private crushAlpha : number;
 
     // Camera parameters
     private cameraOrbitX : number;
@@ -25,6 +26,7 @@ export class TextureMappingApp extends GraphicsApp
     private light : THREE.DirectionalLight;
     private lightHelper : THREE.Line;
     private cylinder : THREE.Group;
+    private cylinderMesh : THREE.Mesh;
 
     // Cylinder vertices
     private cylinderVertices : Array<THREE.Vector3>;
@@ -37,6 +39,7 @@ export class TextureMappingApp extends GraphicsApp
 
         this.debugMode = false;
         this.mouseDrag = false;
+        this.crushAlpha = 0;
 
         this.cameraOrbitX = 0;
         this.cameraOrbitY = 0;
@@ -50,6 +53,7 @@ export class TextureMappingApp extends GraphicsApp
         this.light = new THREE.DirectionalLight();
         this.lightHelper = new THREE.Line();
         this.cylinder = new THREE.Group();
+        this.cylinderMesh = new THREE.Mesh();
 
         this.cylinderVertices = [];
         this.crushedCylinderVertices = [];
@@ -110,8 +114,8 @@ export class TextureMappingApp extends GraphicsApp
         const heightSegments = 10;
         const cylinderHeight = 2.5;
 
-        var cylinderMesh = this.createCrushableCylinderMesh(cylinderSegments, heightSegments, cylinderHeight);
-        this.cylinder.add(cylinderMesh);
+        this.cylinderMesh = this.createCrushableCylinderMesh(cylinderSegments, heightSegments, cylinderHeight);
+        this.cylinder.add(this.cylinderMesh);
 
         // Color the cylinder
         // var cylinderMaterial = new THREE.MeshLambertMaterial();
@@ -121,7 +125,7 @@ export class TextureMappingApp extends GraphicsApp
         // Texture the cylinder
         var cylinderMaterial = new THREE.MeshLambertMaterial();
         cylinderMaterial.map = new THREE.TextureLoader().load('./assets/campbells.png');
-        cylinderMesh.material = cylinderMaterial;
+        this.cylinderMesh.material = cylinderMaterial;
 
         const rimHeight = 0.05;
 
@@ -163,6 +167,11 @@ export class TextureMappingApp extends GraphicsApp
         var controls = gui.addFolder('Controls');
         controls.open();
 
+        // Create a GUI control for crushing the can
+        var alphaController = controls.add(this, 'crushAlpha', 0, 1);
+        alphaController.name('Crush Alpha');
+        alphaController.onChange((value: number) => { this.morphCylinder()});
+
         // Create a GUI control for the debug mode and add a change event handler
         var lightXController = controls.add(this, 'lightOrbitX', -180, 180);
         lightXController.name('Light Orbit X');
@@ -175,7 +184,6 @@ export class TextureMappingApp extends GraphicsApp
         var lightYController = controls.add(this, 'lightIntensity', 0, 2);
         lightYController.name('Light Intensity');
         lightYController.onChange((value: number) => { this.updateLightParameters()});
-
 
         // Create a GUI control for the debug mode and add a change event handler
         var debugController = controls.add(this, 'debugMode');
@@ -200,11 +208,17 @@ export class TextureMappingApp extends GraphicsApp
                 var angle = j * increment;
                 var y = -height/2 + i*heightIncrement;
 
-                this.cylinderVertices.push(new THREE.Vector3(Math.cos(angle), y, Math.sin(angle)));
-                this.cylinderVertices.push(new THREE.Vector3(Math.cos(angle+increment), y, Math.sin(angle+increment)));
+                var v1 = new THREE.Vector3(Math.cos(angle), y, Math.sin(angle));
+                var v2 = new THREE.Vector3(Math.cos(angle + increment), y, Math.sin(angle + increment));
 
-                this.crushedCylinderVertices.push(new THREE.Vector3(Math.cos(angle), y, Math.sin(angle)));
-                this.crushedCylinderVertices.push(new THREE.Vector3(Math.cos(angle+increment), y, Math.sin(angle+increment)));
+                this.cylinderVertices.push(v1);
+                this.cylinderVertices.push(v2);
+
+                var crushScale = Math.abs(Math.cos(i / heightSegments * Math.PI));
+                crushScale = THREE.MathUtils.clamp(crushScale, 0.25, 1);
+
+                this.crushedCylinderVertices.push(new THREE.Vector3(v1.x*crushScale, v1.y, v1.z*crushScale));
+                this.crushedCylinderVertices.push(new THREE.Vector3(v2.x*crushScale, v2.y, v2.z*crushScale));
 
                 normals.push(Math.cos(angle), 0, Math.sin(angle));
                 normals.push(Math.cos(angle+increment), 0, Math.sin(angle+increment));
@@ -226,7 +240,7 @@ export class TextureMappingApp extends GraphicsApp
         }
         
         var mesh = new THREE.Mesh();
-        mesh.geometry.setFromPoints(this.crushedCylinderVertices);
+        mesh.geometry.setFromPoints(this.cylinderVertices);
         mesh.geometry.setIndex(indices);
         mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -309,9 +323,23 @@ export class TextureMappingApp extends GraphicsApp
         return mesh;
     }
 
+    private morphCylinder() : void
+    {
+        var blendedVertices = [];
+
+        for(var i=0; i < this.cylinderVertices.length; i++)
+        {
+            var v = new THREE.Vector3();
+            v.lerpVectors(this.cylinderVertices[i], this.crushedCylinderVertices[i], this.crushAlpha);
+            blendedVertices.push(v);
+        }
+
+        this.cylinderMesh.geometry.setFromPoints(blendedVertices);
+    }
+
     update(deltaTime : number) : void
     {
-       
+
     }
 
     // Mouse event handlers for wizard functionality
