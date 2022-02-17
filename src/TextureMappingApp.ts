@@ -146,11 +146,11 @@ export class TextureMappingApp extends GraphicsApp
     {
         var vertices : Array<THREE.Vector3> = [];
         var normals : Array<number> = [];
+        var uv : Array<number> = [];
         var indices : Array<number> = [];
 
         var increment = (360 / numSegments) * Math.PI / 180;
-        var totalRepititions = (2 * Math.PI) / increment; 
-        for(let i=0; i < totalRepititions; i++)
+        for(let i=0; i < numSegments; i++)
         {
             var angle = i * increment;
             vertices.push(new THREE.Vector3(Math.cos(angle), 1, Math.sin(angle)));
@@ -163,6 +163,11 @@ export class TextureMappingApp extends GraphicsApp
             normals.push(Math.cos(angle+increment), 0, Math.sin(angle+increment));
             normals.push(Math.cos(angle+increment), 0, Math.sin(angle+increment));
 
+            uv.push(1 - i / numSegments, 1);
+            uv.push(1 - i / numSegments, 0);
+            uv.push(1 - (i + 1) / numSegments, 1);
+            uv.push(1 - (i + 1) / numSegments, 0);
+
             indices.push(i*4, i*4+2, i*4+1);
             indices.push(i*4+1, i*4+2, i*4+3);
         }
@@ -171,9 +176,14 @@ export class TextureMappingApp extends GraphicsApp
         mesh.geometry.setFromPoints(vertices);
         mesh.geometry.setIndex(indices);
         mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+
+        // var material = new THREE.MeshLambertMaterial();
+        // material.color.set('gray');
+        // mesh.material = material;
 
         var material = new THREE.MeshLambertMaterial();
-        material.color.set('gray');
+        material.map = new THREE.TextureLoader().load('./assets/campbells.png');
         mesh.material = material;
 
         return mesh;
@@ -212,7 +222,7 @@ export class TextureMappingApp extends GraphicsApp
         mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
 
         var material = new THREE.MeshLambertMaterial();
-        material.color.set('gray');
+        material.color.set(new THREE.Color(0.5, 0.5, 0.5));
         mesh.material = material;
 
         return mesh;
