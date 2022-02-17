@@ -49,7 +49,9 @@ export class TextureMappingApp extends GraphicsApp
     {
         // Setup camera
         this.cameraDistance = 4;
-        this.updateCameraOrbit();
+        this.camera.position.set(0, 0, this.cameraDistance);
+        this.camera.lookAt(0, 0, 0);
+        this.camera.up.set(0, 1, 0);
 
         // Create an ambient light
         var ambientLight = new THREE.AmbientLight('white', 0.3);
@@ -75,8 +77,22 @@ export class TextureMappingApp extends GraphicsApp
         // Put the debug material into wireframe mode
         this.debugMaterial.wireframe = true;
 
+        const numSegments = 10;
+
+        // Construct the cylinder
+        this.cylinder.add(this.createCylinderMesh(numSegments));
+
+        // Construct the cylinder top
+        var cylinderTop = this.createDisc(numSegments);
+        cylinderTop.position.set(0, 1, 0);
+        this.cylinder.add(cylinderTop);
+
+        var cylinderBottom = this.createDisc(numSegments);
+        cylinderBottom.position.set(0, -1, 0);
+        cylinderBottom.scale.set(1, -1, 1);
+        this.cylinder.add(cylinderBottom);
+
         // Add the cylinder to the scene
-        this.cylinder.add(this.createCylinderMesh());
         this.scene.add(this.cylinder);
 
         // Create the GUI
@@ -105,13 +121,13 @@ export class TextureMappingApp extends GraphicsApp
 
     }
 
-    private createCylinderMesh() : THREE.Mesh
+    private createCylinderMesh(numSegments : number) : THREE.Mesh
     {
         var vertices : Array<THREE.Vector3> = [];
         var normals : Array<number> = [];
         var indices : Array<number> = [];
 
-        var increment = 45 * Math.PI / 180;
+        var increment = (360 / numSegments) * Math.PI / 180;
         var totalRepititions = (2 * Math.PI) / increment; 
         for(let i=0; i < totalRepititions; i++)
         {
@@ -130,16 +146,55 @@ export class TextureMappingApp extends GraphicsApp
             indices.push(i*4+1, i*4+2, i*4+3);
         }
         
-        var cylinderMesh = new THREE.Mesh();
-        cylinderMesh.geometry.setFromPoints(vertices);
-        cylinderMesh.geometry.setIndex(indices);
-        cylinderMesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        var mesh = new THREE.Mesh();
+        mesh.geometry.setFromPoints(vertices);
+        mesh.geometry.setIndex(indices);
+        mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
 
-        var cylinderMaterial = new THREE.MeshLambertMaterial();
-        cylinderMaterial.color.set('green');
-        cylinderMesh.material = cylinderMaterial;
+        var material = new THREE.MeshLambertMaterial();
+        material.color.set('gray');
+        mesh.material = material;
 
-        return cylinderMesh;
+        return mesh;
+    }
+
+    private createDisc(numSegments : number) : THREE.Mesh
+    {
+        var mesh = new THREE.Mesh();
+
+        var vertices : Array<THREE.Vector3> = [];
+        var normals : Array<number> = [];
+        var indices : Array<number> = [];
+
+        // Create a single vertex and normal at center
+        vertices.push(new THREE.Vector3(0, 0, 0));
+        normals.push(0, 1, 0);
+
+        var increment = (360 / numSegments) * Math.PI / 180;
+        var totalRepititions = (2 * Math.PI) / increment; 
+        for(let i=0; i < totalRepititions; i++)
+        {
+            var angle = i * increment;
+            vertices.push(new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)));
+            vertices.push(new THREE.Vector3(Math.cos(angle+increment), 0, Math.sin(angle+increment)));
+
+            normals.push(0, 1, 0);
+            normals.push(0, 1, 0);
+
+            // Create a single triangle from the center to the two added vertices
+            indices.push(0, i*2 + 2, i*2 + 1)
+        }
+
+        var mesh = new THREE.Mesh();
+        mesh.geometry.setFromPoints(vertices);
+        mesh.geometry.setIndex(indices);
+        mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
+        var material = new THREE.MeshLambertMaterial();
+        material.color.set('gray');
+        mesh.material = material;
+
+        return mesh;
     }
 
     update(deltaTime : number) : void
@@ -162,27 +217,46 @@ export class TextureMappingApp extends GraphicsApp
         this.mouseDrag = false;
     }
 
-    // Mouse event handlers for wizard functionality
+    
     onMouseMove(event: MouseEvent) : void
     {
         if(this.mouseDrag)
         {
-            this.cameraOrbitX += event.movementX;
-            this.cameraOrbitY += event.movementY;
+            this.cameraOrbitX += event.movementY;
+
+            if(this.cameraOrbitX < 90 || this.cameraOrbitX > 270)
+                this.cameraOrbitY += event.movementX;
+            else
+                this.cameraOrbitY -= event.movementX;
+
+            if(this.cameraOrbitX > 360)
+                this.cameraOrbitX -= 360;
+            else if(this.cameraOrbitX < 0)
+                this.cameraOrbitX += 360;
+
+            if(this.cameraOrbitY > 360)
+                this.cameraOrbitY -= 360;
+            else if(this.cameraOrbitY < 0)
+                this.cameraOrbitY += 360;
+
             this.updateCameraOrbit();
         }
     }
 
     private updateCameraOrbit() : void
     {
-        var rotationMatrix = new THREE.Matrix4().makeRotationY(-this.cameraOrbitX * Math.PI / 180);
-        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(-this.cameraOrbitY * Math.PI / 180));
+        var rotationMatrix = new THREE.Matrix4().makeRotationY(-this.cameraOrbitY * Math.PI / 180);
+        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(-this.cameraOrbitX * Math.PI / 180));
 
         this.camera.position.set(0, 0, this.cameraDistance);
         this.camera.applyMatrix4(rotationMatrix);
 
         this.camera.lookAt(0, 0, 0);
-        this.camera.up.set(0, 1, 0);
+
+        if(this.cameraOrbitX < 90 || this.cameraOrbitX > 270)
+            this.camera.up.set(0, 1, 0);
+        else
+            this.camera.up.set(0, -1, 0);
     }
 
     private updateLightParameters() : void
