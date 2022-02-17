@@ -26,6 +26,10 @@ export class TextureMappingApp extends GraphicsApp
     private lightHelper : THREE.Line;
     private cylinder : THREE.Group;
 
+    // Cylinder vertices
+    private cylinderVertices : Array<THREE.Vector3>;
+    private crushedCylinderVertices : Array<THREE.Vector3>;
+
     constructor()
     {
         // Pass in the aspect ratio to the constructor
@@ -46,6 +50,9 @@ export class TextureMappingApp extends GraphicsApp
         this.light = new THREE.DirectionalLight();
         this.lightHelper = new THREE.Line();
         this.cylinder = new THREE.Group();
+
+        this.cylinderVertices = [];
+        this.crushedCylinderVertices = [];
     }
 
     createScene() : void
@@ -99,10 +106,11 @@ export class TextureMappingApp extends GraphicsApp
         this.scene.add(axisHelper);
 
         // Construct the cylinder
-        const cylinderSegments = 30;
+        const cylinderSegments = 10;
+        const heightSegments = 10;
         const cylinderHeight = 2.5;
 
-        var cylinderMesh = this.createCylinderMesh(cylinderSegments, cylinderHeight);
+        var cylinderMesh = this.createCrushableCylinderMesh(cylinderSegments, heightSegments, cylinderHeight);
         this.cylinder.add(cylinderMesh);
 
         // Color the cylinder
@@ -176,6 +184,56 @@ export class TextureMappingApp extends GraphicsApp
 
     }
 
+    private createCrushableCylinderMesh(numSegments : number, heightSegments : number, height : number) : THREE.Mesh
+    {
+        var normals : Array<number> = [];
+        var uv : Array<number> = [];
+        var indices : Array<number> = [];
+
+        var increment = (360 / numSegments) * Math.PI / 180;
+        var heightIncrement = height / heightSegments;
+
+        for(let i=0; i <= heightSegments; i++)
+        {
+            for(let j=0; j <= numSegments; j++)
+            {
+                var angle = j * increment;
+                var y = -height/2 + i*heightIncrement;
+
+                this.cylinderVertices.push(new THREE.Vector3(Math.cos(angle), y, Math.sin(angle)));
+                this.cylinderVertices.push(new THREE.Vector3(Math.cos(angle+increment), y, Math.sin(angle+increment)));
+
+                this.crushedCylinderVertices.push(new THREE.Vector3(Math.cos(angle), y, Math.sin(angle)));
+                this.crushedCylinderVertices.push(new THREE.Vector3(Math.cos(angle+increment), y, Math.sin(angle+increment)));
+
+                normals.push(Math.cos(angle), 0, Math.sin(angle));
+                normals.push(Math.cos(angle+increment), 0, Math.sin(angle+increment));
+
+                uv.push(1 - j / numSegments, i / heightSegments);
+                uv.push(1 - (j + 1) / numSegments, i / heightSegments);        
+            }
+        }
+
+        for(let i=0; i <= heightSegments; i++)
+        {
+            for(let j=0; j <= numSegments; j++)
+            {
+                var firstIndex = (i * numSegments + j) * 2;
+                var nextRowIndex = firstIndex + numSegments*2;
+                indices.push(firstIndex, nextRowIndex + 1, firstIndex+1);
+                indices.push(firstIndex, nextRowIndex, nextRowIndex + 1);
+            }
+        }
+        
+        var mesh = new THREE.Mesh();
+        mesh.geometry.setFromPoints(this.crushedCylinderVertices);
+        mesh.geometry.setIndex(indices);
+        mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+
+        return mesh;
+    }
+
     private createCylinderMesh(numSegments : number, height : number) : THREE.Mesh
     {
         var vertices : Array<THREE.Vector3> = [];
@@ -187,6 +245,7 @@ export class TextureMappingApp extends GraphicsApp
         for(let i=0; i < numSegments; i++)
         {
             var angle = i * increment;
+
             vertices.push(new THREE.Vector3(Math.cos(angle), height/2, Math.sin(angle)));
             vertices.push(new THREE.Vector3(Math.cos(angle), -height/2, Math.sin(angle)));
             vertices.push(new THREE.Vector3(Math.cos(angle+increment), height/2, Math.sin(angle+increment)));
