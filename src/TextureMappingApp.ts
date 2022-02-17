@@ -5,13 +5,23 @@ import { GraphicsApp } from './GraphicsApp'
 
 export class TextureMappingApp extends GraphicsApp
 { 
+    // State variables
     private debugMode : boolean;
     private mouseDrag : boolean;
+
+    // Camera parameters
     private cameraOrbitX : number;
     private cameraOrbitY : number;
     private cameraDistance : number;
+
+    // Light parameters
+    private lightOrbitX : number;
+    private lightOrbitY : number;
+    private lightIntensity : number;
     
+    // Objects and materials
     private debugMaterial : THREE.MeshBasicMaterial;
+    private light : THREE.DirectionalLight;
     private cylinder : THREE.Group;
 
     constructor()
@@ -21,11 +31,17 @@ export class TextureMappingApp extends GraphicsApp
 
         this.debugMode = false;
         this.mouseDrag = false;
+
         this.cameraOrbitX = 0;
         this.cameraOrbitY = 0;
         this.cameraDistance = 0;
 
+        this.lightOrbitX = 0;
+        this.lightOrbitY = 0;
+        this.lightIntensity = 0;
+
         this.debugMaterial = new THREE.MeshBasicMaterial();
+        this.light = new THREE.DirectionalLight();
         this.cylinder = new THREE.Group();
     }
 
@@ -40,9 +56,12 @@ export class TextureMappingApp extends GraphicsApp
         this.scene.add(ambientLight);
 
         // Create a directional light
-        var directionalLight = new THREE.DirectionalLight('white', .6);
-        directionalLight.position.set(0, 2, 1);
-        this.scene.add(directionalLight)
+        this.light.color = new THREE.Color('white');
+        this.lightIntensity = 1;
+        this.lightOrbitX = -22.5;
+        this.lightOrbitY = 45;
+        this.updateLightParameters();
+        this.scene.add(this.light)
 
         // Create the skybox material
         var skyboxMaterial = new THREE.MeshBasicMaterial();
@@ -64,6 +83,20 @@ export class TextureMappingApp extends GraphicsApp
         var gui = new GUI();
         var controls = gui.addFolder('Controls');
         controls.open();
+
+        // Create a GUI control for the debug mode and add a change event handler
+        var lightXController = controls.add(this, 'lightOrbitX', -180, 180);
+        lightXController.name('Light Orbit X');
+        lightXController.onChange((value: number) => { this.updateLightParameters()});
+
+        var lightYController = controls.add(this, 'lightOrbitY', -90, 90);
+        lightYController.name('Light Orbit Y');
+        lightYController.onChange((value: number) => { this.updateLightParameters()});
+
+        var lightYController = controls.add(this, 'lightIntensity', 0, 2);
+        lightYController.name('Light Intensity');
+        lightYController.onChange((value: number) => { this.updateLightParameters()});
+
 
         // Create a GUI control for the debug mode and add a change event handler
         var debugController = controls.add(this, 'debugMode');
@@ -117,7 +150,10 @@ export class TextureMappingApp extends GraphicsApp
     // Mouse event handlers for wizard functionality
     onMouseDown(event: MouseEvent) : void 
     {
-        this.mouseDrag = true;
+        if((event.target! as Element).localName == "canvas")
+        {
+            this.mouseDrag = true;
+        }
     }
 
     // Mouse event handlers for wizard functionality
@@ -131,22 +167,33 @@ export class TextureMappingApp extends GraphicsApp
     {
         if(this.mouseDrag)
         {
-            this.cameraOrbitX += event.movementX * Math.PI / 180;
-            this.cameraOrbitY += event.movementY * Math.PI / 180;
+            this.cameraOrbitX += event.movementX;
+            this.cameraOrbitY += event.movementY;
             this.updateCameraOrbit();
         }
     }
 
     private updateCameraOrbit() : void
     {
-        var rotationMatrix = new THREE.Matrix4().makeRotationY(-this.cameraOrbitX);
-        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(-this.cameraOrbitY));
+        var rotationMatrix = new THREE.Matrix4().makeRotationY(-this.cameraOrbitX * Math.PI / 180);
+        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(-this.cameraOrbitY * Math.PI / 180));
 
         this.camera.position.set(0, 0, this.cameraDistance);
         this.camera.applyMatrix4(rotationMatrix);
 
         this.camera.lookAt(0, 0, 0);
         this.camera.up.set(0, 1, 0);
+    }
+
+    private updateLightParameters() : void
+    {
+        var rotationMatrix = new THREE.Matrix4().makeRotationY(this.lightOrbitX * Math.PI / 180);
+        rotationMatrix.multiply(new THREE.Matrix4().makeRotationX(-this.lightOrbitY * Math.PI / 180));
+
+        this.light.position.set(0, 0, 10);
+        this.light.applyMatrix4(rotationMatrix);
+
+        this.light.intensity = this.lightIntensity;
     }
 
     private toggleDebugMode(debugMode: boolean) : void
