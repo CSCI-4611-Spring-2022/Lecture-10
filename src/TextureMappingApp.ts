@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GUI } from 'dat.gui'
 import { GraphicsApp } from './GraphicsApp'
+import { LineBasicMaterial, Vector3 } from 'three';
 
 
 export class TextureMappingApp extends GraphicsApp
@@ -22,6 +23,7 @@ export class TextureMappingApp extends GraphicsApp
     // Objects and materials
     private debugMaterial : THREE.MeshBasicMaterial;
     private light : THREE.DirectionalLight;
+    private lightHelper : THREE.Line;
     private cylinder : THREE.Group;
 
     constructor()
@@ -42,6 +44,7 @@ export class TextureMappingApp extends GraphicsApp
 
         this.debugMaterial = new THREE.MeshBasicMaterial();
         this.light = new THREE.DirectionalLight();
+        this.lightHelper = new THREE.Line();
         this.cylinder = new THREE.Group();
     }
 
@@ -62,8 +65,22 @@ export class TextureMappingApp extends GraphicsApp
         this.lightIntensity = 1;
         this.lightOrbitX = -22.5;
         this.lightOrbitY = 45;
-        this.updateLightParameters();
         this.scene.add(this.light)
+
+        // Create a visual indicator for the light direction
+        var lineVertices = [];
+        lineVertices.push(new Vector3(0, 0, 0));
+        lineVertices.push(new Vector3(0, 0, 10));
+        this.lightHelper.geometry.setFromPoints(lineVertices);
+        this.scene.add(this.lightHelper);
+
+        // Assign the visual indicator color
+        var lightHelperMaterial = new LineBasicMaterial();
+        lightHelperMaterial.color = new THREE.Color('gray');
+        this.lightHelper.material = lightHelperMaterial;
+
+        // Update all the light visuals
+        this.updateLightParameters();
 
         // Create the skybox material
         var skyboxMaterial = new THREE.MeshBasicMaterial();
@@ -77,17 +94,21 @@ export class TextureMappingApp extends GraphicsApp
         // Put the debug material into wireframe mode
         this.debugMaterial.wireframe = true;
 
-        const numSegments = 10;
+        // Create a visual representation of the axes
+        var axisHelper = new THREE.AxesHelper(2);
+        this.scene.add(axisHelper);
 
         // Construct the cylinder
-        this.cylinder.add(this.createCylinderMesh(numSegments));
+        const cylinderSegments = 10;
+        this.cylinder.add(this.createCylinderMesh(cylinderSegments));
 
         // Construct the cylinder top
-        var cylinderTop = this.createDisc(numSegments);
+        var cylinderTop = this.createDisc(cylinderSegments);
         cylinderTop.position.set(0, 1, 0);
         this.cylinder.add(cylinderTop);
 
-        var cylinderBottom = this.createDisc(numSegments);
+        // The cylinder bottom is the same as the top, but flipped
+        var cylinderBottom = this.createDisc(cylinderSegments);
         cylinderBottom.position.set(0, -1, 0);
         cylinderBottom.scale.set(1, -1, 1);
         this.cylinder.add(cylinderBottom);
@@ -229,12 +250,12 @@ export class TextureMappingApp extends GraphicsApp
             else
                 this.cameraOrbitY -= event.movementX;
 
-            if(this.cameraOrbitX > 360)
+            if(this.cameraOrbitX >= 360)
                 this.cameraOrbitX -= 360;
             else if(this.cameraOrbitX < 0)
                 this.cameraOrbitX += 360;
 
-            if(this.cameraOrbitY > 360)
+            if(this.cameraOrbitY >= 360)
                 this.cameraOrbitY -= 360;
             else if(this.cameraOrbitY < 0)
                 this.cameraOrbitY += 360;
@@ -251,12 +272,18 @@ export class TextureMappingApp extends GraphicsApp
         this.camera.position.set(0, 0, this.cameraDistance);
         this.camera.applyMatrix4(rotationMatrix);
 
-        this.camera.lookAt(0, 0, 0);
+        
 
         if(this.cameraOrbitX < 90 || this.cameraOrbitX > 270)
             this.camera.up.set(0, 1, 0);
-        else
+        else if(this.cameraOrbitX > 90 && this.cameraOrbitX < 270)
             this.camera.up.set(0, -1, 0);
+        else if(this.cameraOrbitX == 270)
+            this.camera.up.set(Math.sin(-this.cameraOrbitY * Math.PI / 180), 0, Math.cos(-this.cameraOrbitY * Math.PI / 180));
+        else
+            this.camera.up.set(-Math.sin(-this.cameraOrbitY * Math.PI / 180), 0, -Math.cos(-this.cameraOrbitY * Math.PI / 180));
+
+        this.camera.lookAt(0, 0, 0);
     }
 
     private updateLightParameters() : void
@@ -266,6 +293,8 @@ export class TextureMappingApp extends GraphicsApp
 
         this.light.position.set(0, 0, 10);
         this.light.applyMatrix4(rotationMatrix);
+
+        this.lightHelper.lookAt(this.light.position);
 
         this.light.intensity = this.lightIntensity;
     }
