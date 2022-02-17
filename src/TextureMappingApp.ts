@@ -99,19 +99,53 @@ export class TextureMappingApp extends GraphicsApp
         this.scene.add(axisHelper);
 
         // Construct the cylinder
-        const cylinderSegments = 10;
-        this.cylinder.add(this.createCylinderMesh(cylinderSegments));
+        const cylinderSegments = 30;
+        const cylinderHeight = 2.5;
+
+        var cylinderMesh = this.createCylinderMesh(cylinderSegments, cylinderHeight);
+        this.cylinder.add(cylinderMesh);
+
+        // Color the cylinder
+        // var cylinderMaterial = new THREE.MeshLambertMaterial();
+        // cylinderMaterial.color.set('gray');
+        // cylinderMesh.material = cylinderMaterial;
+
+        // Texture the cylinder
+        var cylinderMaterial = new THREE.MeshLambertMaterial();
+        cylinderMaterial.map = new THREE.TextureLoader().load('./assets/campbells.png');
+        cylinderMesh.material = cylinderMaterial;
+
+        const rimHeight = 0.05;
+
+        // Create a cylinder rim
+        var topRimMesh = this.createCylinderMesh(cylinderSegments, rimHeight);
+        topRimMesh.position.set(0, cylinderHeight / 2 + rimHeight / 2, 0);
+        this.cylinder.add(topRimMesh);
+
+        // The bottom rim is the same as the top, but flipped
+        var bottomRimMesh = topRimMesh.clone();
+        bottomRimMesh.position.set(0, -cylinderHeight / 2 + -rimHeight / 2, 0);
+        bottomRimMesh.scale.set(1, -1, 1);
+        this.cylinder.add(bottomRimMesh);
 
         // Construct the cylinder top
-        var cylinderTop = this.createDisc(cylinderSegments);
-        cylinderTop.position.set(0, 1, 0);
-        this.cylinder.add(cylinderTop);
+        var topMesh = this.createDiscMesh(cylinderSegments);
+        topMesh.position.set(0, cylinderHeight / 2 + rimHeight, 0);
+        this.cylinder.add(topMesh);
 
         // The cylinder bottom is the same as the top, but flipped
-        var cylinderBottom = this.createDisc(cylinderSegments);
-        cylinderBottom.position.set(0, -1, 0);
-        cylinderBottom.scale.set(1, -1, 1);
-        this.cylinder.add(cylinderBottom);
+        var bottomMesh = topMesh.clone();
+        bottomMesh.position.set(0, -cylinderHeight / 2, 0);
+        bottomMesh.scale.set(1, -1, 1);
+        this.cylinder.add(bottomMesh);
+
+        // Color the other parts of the cylinder
+        var canMaterial = new THREE.MeshLambertMaterial();
+        canMaterial.color.set(new THREE.Color(0.4, 0.4, 0.4));
+        topRimMesh.material = canMaterial;
+        bottomRimMesh.material = canMaterial;
+        topMesh.material = canMaterial;
+        bottomMesh.material = canMaterial;
 
         // Add the cylinder to the scene
         this.scene.add(this.cylinder);
@@ -142,7 +176,7 @@ export class TextureMappingApp extends GraphicsApp
 
     }
 
-    private createCylinderMesh(numSegments : number) : THREE.Mesh
+    private createCylinderMesh(numSegments : number, height : number) : THREE.Mesh
     {
         var vertices : Array<THREE.Vector3> = [];
         var normals : Array<number> = [];
@@ -153,10 +187,10 @@ export class TextureMappingApp extends GraphicsApp
         for(let i=0; i < numSegments; i++)
         {
             var angle = i * increment;
-            vertices.push(new THREE.Vector3(Math.cos(angle), 1, Math.sin(angle)));
-            vertices.push(new THREE.Vector3(Math.cos(angle), -1, Math.sin(angle)));
-            vertices.push(new THREE.Vector3(Math.cos(angle+increment), 1, Math.sin(angle+increment)));
-            vertices.push(new THREE.Vector3(Math.cos(angle+increment), -1, Math.sin(angle+increment)));
+            vertices.push(new THREE.Vector3(Math.cos(angle), height/2, Math.sin(angle)));
+            vertices.push(new THREE.Vector3(Math.cos(angle), -height/2, Math.sin(angle)));
+            vertices.push(new THREE.Vector3(Math.cos(angle+increment), height/2, Math.sin(angle+increment)));
+            vertices.push(new THREE.Vector3(Math.cos(angle+increment), -height/2, Math.sin(angle+increment)));
 
             normals.push(Math.cos(angle), 0, Math.sin(angle));
             normals.push(Math.cos(angle), 0, Math.sin(angle));
@@ -178,18 +212,10 @@ export class TextureMappingApp extends GraphicsApp
         mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
 
-        // var material = new THREE.MeshLambertMaterial();
-        // material.color.set('gray');
-        // mesh.material = material;
-
-        var material = new THREE.MeshLambertMaterial();
-        material.map = new THREE.TextureLoader().load('./assets/campbells.png');
-        mesh.material = material;
-
         return mesh;
     }
 
-    private createDisc(numSegments : number) : THREE.Mesh
+    private createDiscMesh(numSegments : number) : THREE.Mesh
     {
         var mesh = new THREE.Mesh();
 
@@ -220,10 +246,6 @@ export class TextureMappingApp extends GraphicsApp
         mesh.geometry.setFromPoints(vertices);
         mesh.geometry.setIndex(indices);
         mesh.geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-
-        var material = new THREE.MeshLambertMaterial();
-        material.color.set(new THREE.Color(0.5, 0.5, 0.5));
-        mesh.material = material;
 
         return mesh;
     }
